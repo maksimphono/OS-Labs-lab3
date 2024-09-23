@@ -2961,7 +2961,7 @@ run(void f(char *), char *s) {
   int pid;
   int xstatus;
 
-  printf("test %s: ", s);
+  printf("test %s: \n", s);
   if((pid = fork()) < 0) {
     printf("runtest: fork error\n");
     exit(1);

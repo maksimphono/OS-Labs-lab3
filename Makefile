@@ -1,3 +1,9 @@
+# To compile and run with a lab solution, set the lab name in conf/lab.mk (e.g., LAB=syscall).
+# set your student id and token in conf/info.mk (e.g., SID=123456789, TOKEN=123456789abcdefg).
+
+-include conf/lab.mk
+-include conf/info.mk
+
 K=kernel
 U=user
 
@@ -6,6 +12,7 @@ OBJS = \
   $K/start.o \
   $K/console.o \
   $K/printf.o \
+  $K/sprintf.o \
   $K/uart.o \
   $K/kalloc.o \
   $K/spinlock.o \
@@ -67,6 +74,7 @@ CFLAGS += -fno-builtin-strchr -fno-builtin-exit -fno-builtin-malloc -fno-builtin
 CFLAGS += -fno-builtin-free
 CFLAGS += -fno-builtin-memcpy -Wno-main
 CFLAGS += -fno-builtin-printf -fno-builtin-fprintf -fno-builtin-vprintf
+CFLAGS += -fno-builtin-sprintf
 CFLAGS += -I.
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 
@@ -140,17 +148,25 @@ UPROGS=\
 	$U/_wc\
 	$U/_zombie\
 
+ifeq ($(LAB),syscall)
+UPROGS += \
+	$U/_etrace
+endif
+
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
 
 -include kernel/*.d user/*.d
 
 clean: 
-	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
+	rm -rf *.dvi *.idx *.aux *.log *.ind *.ilg \
 	*/*.o */*.d */*.asm */*.sym \
-	$U/initcode $U/initcode.out $K/kernel fs.img \
-	mkfs/mkfs .gdbinit \
-        $U/usys.S \
+	$U/initcode $U/initcode.out $U/usys.S \
+	$K/kernel \
+	mkfs/mkfs fs.img \
+	.gdbinit \
+	__pycache__ \
+	xv6.out* \
 	$(UPROGS)
 
 # try to generate a unique GDB port
@@ -178,3 +194,59 @@ qemu-gdb: $K/kernel .gdbinit fs.img
 	@echo "*** Now run 'gdb' in another window." 1>&2
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
 
+STYLE=\033[1;31m
+NC=\033[0m
+
+info-check:
+	@if test -z "$(SID)"; then \
+		echo "${STYLE}Please set SID in conf/info.mk${NC}"; \
+		false; \
+	fi
+	@if test -z "$(TOKEN)"; then \
+		echo "${STYLE}Please set TOKEN in conf/info.mk${NC}"; \
+		false; \
+	fi
+
+submit-check: info-check
+	@if test -z "`echo $(SID) | grep '^[0-9]\{9\}$$'`"; then \
+		echo -n "${STYLE}Your SID (${SID}) does not appear to be correct. Continue? [y/N]${NC} "; \
+		read -p "" r; \
+		test "$$r" = y; \
+	fi
+	@if ! test -d .git; then \
+		echo "${STYLE}No .git directory, is this a git repository?${NC}"; \
+		false; \
+	fi
+	@if test "$$(git symbolic-ref HEAD)" != refs/heads/lab-$(LAB); then \
+		git branch; \
+		echo -n "${STYLE}You are not on the lab-$(LAB) branch. Hand-in the current branch? [y/N]${NC} "; \
+		read -p "" r; \
+		test "$$r" = y; \
+	fi
+	@if ! git diff-files --quiet || ! git diff-index --quiet --cached HEAD; then \
+		git status -s; \
+		echo; \
+		echo "${STYLE}You have uncommitted changes.  Please commit or stash them.${NC}"; \
+		false; \
+	fi
+	@if test -n "`git status -s`"; then \
+		git status -s; \
+		echo -n "${STYLE}Untracked files will not be handed in.  Continue? [y/N]${NC} "; \
+		read -p "" r; \
+		test "$$r" = y; \
+	fi
+
+package: clean submit-check
+	git archive --verbose --format zip --output $(SID).zip HEAD
+
+submit: clean package
+	curl -F "token=${TOKEN}" -F "lab_num=2" -F "file=@${SID}.zip" http://114.212.81.7:9999/upload_code
+
+report: info-check
+	@if ! test -f $(SID).pdf; then \
+		echo "${STYLE}Please put your report in a file named $(SID).pdf${NC}"; \
+		false; \
+	fi
+	curl -F "token=${TOKEN}" -F "lab_num=2" -F "file=@${SID}.pdf" http://114.212.81.7:9999/upload_report
+
+.PHONY: clean info-check submit-check package submit report

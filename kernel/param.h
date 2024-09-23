@@ -9,7 +9,9 @@
 #define MAXOPBLOCKS  10  // max # of blocks any FS op writes
 #define LOGSIZE      (MAXOPBLOCKS*3)  // max data blocks in on-disk log
 #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
-#define FSSIZE       2000  // size of file system in blocks
-#define MAXPATH      128   // maximum file path name
-#define USERSTACK    1     // user stack pages
-
+#define FSSIZE     2000  // size of file system in blocks
+#define MAXPATH     128  // maximum file path name
+#define USERSTACK     1  // user stack pages
+#define NSYSCALLS    21  // number of system calls
+#define MAX_ARG_LEN 256  // maximum length of str arguments of a system call
+#define MAX_STR_P   128  // maximum length of str arguments printed when system call tracing
