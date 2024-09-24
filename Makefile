@@ -202,17 +202,17 @@ info-check:
 		echo "${STYLE}Please set SID in conf/info.mk${NC}"; \
 		false; \
 	fi
+	@if test -z "`echo $(SID) | grep '^[0-9]\{9\}$$'`"; then \
+		echo -n "${STYLE}Your SID (${SID}) does not appear to be correct. Continue? [y/N]${NC} "; \
+		read -p "" r; \
+		test "$$r" = y; \
+	fi
 	@if test -z "$(TOKEN)"; then \
 		echo "${STYLE}Please set TOKEN in conf/info.mk${NC}"; \
 		false; \
 	fi
 
 submit-check: info-check
-	@if test -z "`echo $(SID) | grep '^[0-9]\{9\}$$'`"; then \
-		echo -n "${STYLE}Your SID (${SID}) does not appear to be correct. Continue? [y/N]${NC} "; \
-		read -p "" r; \
-		test "$$r" = y; \
-	fi
 	@if ! test -d .git; then \
 		echo "${STYLE}No .git directory, is this a git repository?${NC}"; \
 		false; \
