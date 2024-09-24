@@ -8,6 +8,7 @@ int parse_param(const char *arg, const char *name, const char *abb, char *value,
     int abb_len = strlen(abb);
     char *arg_name = malloc(name_len + 1);
     char *arg_abb = malloc(abb_len + 1);
+    int ret = 0;
     for (int i = 0; i < name_len; i++) {
       arg_name[i] = arg[i];
     }
@@ -19,15 +20,17 @@ int parse_param(const char *arg, const char *name, const char *abb, char *value,
         strcpy(value, arg + name_len + 1);
         value[value_size - 1] = '\0';
       }
-      return 1;
+      ret = 1;
     } else if (strcmp(arg_abb, abb) == 0) {
       if (arg[abb_len] == '=') {
         strcpy(value, arg + abb_len + 1);
         value[value_size - 1] = '\0';
       }
-      return 1;
+      ret = 1;
     }
-    return 0;
+    free(arg_name); arg_name = 0;
+    free(arg_abb); arg_abb = 0;
+    return ret;
 }
 
 int
