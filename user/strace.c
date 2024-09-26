@@ -45,7 +45,7 @@ main(int argc, char *argv[])
     exit(1);
   }
 
-  char syscall_name[MAX_ARG_LEN] = "all";
+  char syscall_name[MAX_ARG_LEN] = {0};
   int follow_forks = 0;
   char buffer[MAX_ARG_LEN] = {0};
 
@@ -64,7 +64,13 @@ main(int argc, char *argv[])
     exit(1);
   }
 
-  if (etrace(syscall_name, follow_forks) < 0) {
+  int ret = 0;
+  if (syscall_name[0]) {
+    ret = etrace(syscall_name, follow_forks);
+  } else {
+    ret = etrace(0, follow_forks);
+  }
+  if (ret < 0) {
     fprintf(2, "%s: etrace failed\n", argv[0]);
     exit(1);
   }
@@ -73,6 +79,10 @@ main(int argc, char *argv[])
     nargv[j-i] = argv[j];
   }
 
-  exec(nargv[0], nargv);
+  ret = exec(nargv[0], nargv);
+  if (ret < 0) {
+    fprintf(2, "exec %s failed\n", nargv[0]);
+    exit(ret);
+  }
   exit(0);
 }
