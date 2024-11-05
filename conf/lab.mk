@@ -1,2 +1,2 @@
-LAB=syscall
-LAB_NUM=2
+LAB=cow
+LAB_NUM=3
