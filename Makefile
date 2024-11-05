@@ -240,13 +240,16 @@ package: clean submit-check
 	git archive --verbose --format zip --output $(SID).zip HEAD
 
 submit: clean package
-	curl -F "token=${TOKEN}" -F "lab_num=2" -F "file=@${SID}.zip" http://114.212.81.7:9999/upload_code
+	curl -F "token=${TOKEN}" -F "lab_num=${LAB_NUM}" -F "file=@${SID}.zip" http://114.212.81.7:9999/upload_code
 
 report: info-check
 	@if ! test -f $(SID).pdf; then \
 		echo "${STYLE}Please put your report in a file named $(SID).pdf${NC}"; \
 		false; \
 	fi
-	curl -F "token=${TOKEN}" -F "lab_num=2" -F "file=@${SID}.pdf" http://114.212.81.7:9999/upload_report
+	curl -F "token=${TOKEN}" -F "lab_num=${LAB_NUM}" -F "file=@${SID}.pdf" http://114.212.81.7:9999/upload_report
+
+score:
+	curl "http://114.212.81.7:9999/download?token=${TOKEN}&lab_num=${LAB_NUM}"
 
 .PHONY: clean info-check submit-check package submit report
