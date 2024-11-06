@@ -153,6 +153,11 @@ UPROGS += \
 	$U/_strace
 endif
 
+ifeq ($(LAB),cow)
+UPROGS += \
+  $U/_cowtest
+endif
+
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
 
