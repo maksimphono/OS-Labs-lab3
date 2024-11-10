@@ -254,7 +254,7 @@ report: info-check
 	fi
 	curl -F "token=${TOKEN}" -F "lab_num=${LAB_NUM}" -F "file=@${SID}.pdf" http://114.212.81.7:9999/upload_report
 
-score:
+score: info-check
 	curl "http://114.212.81.7:9999/download?token=${TOKEN}&lab_num=${LAB_NUM}"
 
 .PHONY: clean info-check submit-check package submit report
