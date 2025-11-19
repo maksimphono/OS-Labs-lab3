@@ -198,8 +198,8 @@ void            virtio_disk_intr(void);
 
 #define COW_set(pte) (pte | (1ULL << 53))
 
-#define RW_flag(pte) (pte & 1ULL)
+//#define RW_flag(pte) (pte & 1ULL)
 
-#define RW_unset(pte) (pte & ~1ULL)
+#define W_unset(pte) (pte & ~(1ULL << 2))
 
-#define RW_set(pte) (pte | 1ULL)
+#define W_set(pte) (pte | (1ULL << 2))
