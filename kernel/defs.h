@@ -190,3 +190,16 @@ void            virtio_disk_intr(void);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
+
+// COW flag will be on 53th place
+#define COW_flag(pte) ((pte >> 53) & 1ULL)
+
+#define COW_unset(pte) (pte & ~(1ULL << 53))
+
+#define COW_set(pte) (pte | (1ULL << 53))
+
+#define RW_flag(pte) (pte & 1ULL)
+
+#define RW_unset(pte) (pte & ~1ULL)
+
+#define RW_set(pte) (pte | 1ULL)

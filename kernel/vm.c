@@ -317,7 +317,8 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   uint flags;
   char *mem;
 
-  // TODO implement copy-on-write
+  // TODO: rewrite this function, copy all PTEs (not pages) which are valid
+  // unset their R/W flag, set their COW flag
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
       panic("uvmcopy: pte should exist");
