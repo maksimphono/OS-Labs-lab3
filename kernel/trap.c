@@ -51,6 +51,9 @@ usertrap(void)
   // save user program counter.
   p->trapframe->epc = r_sepc();
   
+  if (scause == 1){
+    printf("1");
+  }
   if(scause == 8){
     // system call
 
@@ -69,6 +72,8 @@ usertrap(void)
   } else if(scause == 15){
     // page fault
     // TODO handle copy-on-write page fault
+    uint64 fault_page_va = r_stval();
+    printf("%ld", fault_page_va);
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {
