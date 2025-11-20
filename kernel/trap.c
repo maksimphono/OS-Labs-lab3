@@ -76,26 +76,25 @@ usertrap(void)
     pte_t* fault_pte = walk(p->pagetable, fault_page_va, 0);
     uint64 pa = PTE2PA(*fault_pte);
     uint64 flags = PTE_FLAGS(*fault_pte);
-    char* mem;
+    byte* mem;
 
     *fault_pte = COW_unset(W_set(*fault_pte)); // for now (TODO: change later)
     *fault_pte = *fault_pte & ~1ULL; // unset VALID bit (make invalid for map)
 
     // allocate new page
-    if((mem = kalloc()) == 0) panic("panic");
-      //goto err;
-    memmove(mem, (char*)pa, PGSIZE);
+    if((mem = kalloc()) == 0)// panic("panic");
+      uvmunmap(p->pagetable, 0, fault_page_va / PGSIZE, 1);
+
+    memmove(mem, (byte*)pa, PGSIZE);
     if(mappages(p->pagetable, fault_page_va, PGSIZE, (uint64)mem, flags) != 0){
       kfree(mem);
-      //goto err;
+      uvmunmap(p->pagetable, 0, fault_page_va / PGSIZE, 1);
     }
 
     fault_pte = walk(p->pagetable, fault_page_va, 0);
     *fault_pte = COW_unset(W_set(*fault_pte));
-    
-    printf("%ld, %ln", fault_page_va, fault_pte);
-    //err:
-      
+
+    //printf("%ld, %ln", fault_page_va, fault_pte);
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {
