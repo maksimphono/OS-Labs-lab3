@@ -72,8 +72,30 @@ usertrap(void)
   } else if(scause == 15){
     // page fault
     // TODO handle copy-on-write page fault
-    uint64 fault_page_va = r_stval();
-    printf("%ld", fault_page_va);
+    uint64 fault_page_va = r_stval() & ~0xfffULL; // convert to page's base address immediately
+    pte_t* fault_pte = walk(p->pagetable, fault_page_va, 0);
+    uint64 pa = PTE2PA(*fault_pte);
+    uint64 flags = PTE_FLAGS(*fault_pte);
+    char* mem;
+
+    *fault_pte = COW_unset(W_set(*fault_pte)); // for now (TODO: change later)
+    *fault_pte = *fault_pte & ~1ULL; // unset VALID bit (make invalid for map)
+
+    // allocate new page
+    if((mem = kalloc()) == 0) panic("panic");
+      //goto err;
+    memmove(mem, (char*)pa, PGSIZE);
+    if(mappages(p->pagetable, fault_page_va, PGSIZE, (uint64)mem, flags) != 0){
+      kfree(mem);
+      //goto err;
+    }
+
+    fault_pte = walk(p->pagetable, fault_page_va, 0);
+    *fault_pte = COW_unset(W_set(*fault_pte));
+    
+    printf("%ld, %ln", fault_page_va, fault_pte);
+    //err:
+      
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {
