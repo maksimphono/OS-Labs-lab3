@@ -74,27 +74,34 @@ usertrap(void)
     // TODO handle copy-on-write page fault
     uint64 fault_page_va = r_stval() & ~0xfffULL; // convert to page's base address immediately
     pte_t* fault_pte = walk(p->pagetable, fault_page_va, 0);
-    uint64 pa = PTE2PA(*fault_pte);
-    uint64 flags = PTE_FLAGS(*fault_pte);
-    byte* mem;
 
-    *fault_pte = COW_unset(W_set(*fault_pte)); // for now (TODO: change later)
-    *fault_pte = *fault_pte & ~1ULL; // unset VALID bit (make invalid for map)
+    if (COW_flag(*fault_pte)) { // it is really a COW interruption
+      uint64 pa = PTE2PA(*fault_pte);
+      uint64 flags = PTE_FLAGS(*fault_pte);
+      byte* mem;
 
-    // allocate new page
-    if((mem = kalloc()) == 0)// panic("panic");
-      uvmunmap(p->pagetable, 0, fault_page_va / PGSIZE, 1);
+      *fault_pte = COW_unset(W_set(*fault_pte)); // for now (TODO: change later)
+      *fault_pte = *fault_pte & ~1ULL; // unset VALID bit (make invalid for map)
 
-    memmove(mem, (byte*)pa, PGSIZE);
-    if(mappages(p->pagetable, fault_page_va, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
-      uvmunmap(p->pagetable, 0, fault_page_va / PGSIZE, 1);
-    }
+      // allocate new page
+      if((mem = kalloc()) == 0)// panic("panic");
+        uvmunmap(p->pagetable, 0, fault_page_va / PGSIZE, 1);
 
-    fault_pte = walk(p->pagetable, fault_page_va, 0);
-    *fault_pte = COW_unset(W_set(*fault_pte));
+      memmove(mem, (byte*)pa, PGSIZE);
+      if(mappages(p->pagetable, fault_page_va, PGSIZE, (uint64)mem, flags) != 0){
+        kfree(mem);
+        uvmunmap(p->pagetable, 0, fault_page_va / PGSIZE, 1);
+      }
 
-    //printf("%ld, %ln", fault_page_va, fault_pte);
+      fault_pte = walk(p->pagetable, fault_page_va, 0);
+      *fault_pte = COW_unset(W_set(*fault_pte));
+
+      } else { // it isn't COW interruption, just regular read-only permission violation
+        // kill the process
+        setkilled(p);
+      }
+
+      //printf("%ld, %ln", fault_page_va, fault_pte);
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {
