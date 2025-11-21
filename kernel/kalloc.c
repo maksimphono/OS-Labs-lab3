@@ -52,15 +52,30 @@ kfree(void *pa)
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
 
-  // Fill with junk to catch dangling refs.
-  memset(pa, 1, PGSIZE);
+  uint64 page_idx = (PGROUNDUP(((uint64)pa)) - KERNBASE) / PGSIZE;
 
-  r = (struct run*)pa;
+  if (refcnt.count[page_idx] <= 1) {
+    // last process, that was using this page gave it up -> free it completely
 
-  acquire(&kmem.lock);
-  r->next = kmem.freelist;
-  kmem.freelist = r;
-  release(&kmem.lock);
+    // Fill with junk to catch dangling refs.
+    memset(pa, 1, PGSIZE);
+
+    r = (struct run*)pa;
+
+    acquire(&kmem.lock);
+    r->next = kmem.freelist;
+    kmem.freelist = r;
+    release(&kmem.lock);
+
+    acquire(&refcnt.lock);
+    refcnt.count[page_idx] = 0; // no one uses that page anymore (it's free now)
+    release(&refcnt.lock);
+  } else {
+    // there are still some processes, that are using that page -> don't free it yet
+    acquire(&refcnt.lock);
+    refcnt.count[page_idx] -= 1;
+    release(&refcnt.lock);
+  }
 }
 
 // Allocate one 4096-byte page of physical memory.
@@ -73,15 +88,17 @@ kalloc(void)
 
   acquire(&kmem.lock);
   r = kmem.freelist;
-  if(r)
+  if (r) {
     kmem.freelist = r->next;
+  }
   release(&kmem.lock);
 
-  if(r)
+  if (r) {
     memset((char*)r, 5, PGSIZE); // fill with junk
 
     acquire(&refcnt.lock);
     refcnt.count[(PGROUNDUP(((uint64)r)) - KERNBASE) / PGSIZE] = 1;
     release(&refcnt.lock);
+  }
   return (void*)r;
 }
