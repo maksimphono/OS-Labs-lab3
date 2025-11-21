@@ -8,6 +8,7 @@
 #include "spinlock.h"
 #include "riscv.h"
 #include "defs.h"
+#include "refcnt.h"
 
 void freerange(void *pa_start, void *pa_end);
 
@@ -78,5 +79,9 @@ kalloc(void)
 
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
+
+    acquire(&refcnt.lock);
+    refcnt.count[(PGROUNDUP(((uint64)r)) - KERNBASE) / PGSIZE] = 1;
+    release(&refcnt.lock);
   return (void*)r;
 }
