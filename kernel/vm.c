@@ -317,7 +317,7 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   //uint64 p = 0;
   //uint64 pa, i;
   //uint flags;
-  //char *mem;
+  //byte *mem;
 
   // TODO: rewrite this function, copy all PTEs (not pages) which are valid
   // unset their R/W flag, set their COW flag
@@ -328,14 +328,54 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
       panic("uvmcopy: pte should exist");
     if((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
-    uint64 pa = PTE2PA(*pte);
-    *pte = COW_set(W_unset(*pte));
 
+    uint64 pa = PTE2PA(*pte);
+    uint64 flags = PTE_FLAGS(*pte);
+
+    if (pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0) {
+      continue;          // or panic
+    }
+
+    if (pa < KERNBASE || pa >= PHYSTOP) {
+      // not normal RAM — do not COW; instead, create independent copy in child
+      // but in many kernels you will prefer to copy-on-fault for special mappings
+      // For safety we simply allocate a fresh page for child and copy contents:
+      byte* mem = kalloc();
+      if (mem == 0) {
+        return -1;
+      }
+      memmove(mem, (char*)pa, PGSIZE);  // you must convert pa -> kernel VA or read device safely
+      if (mappages(new, i, PGSIZE, (uint64)mem, PTE_FLAGS(*pte) | PTE_V) != 0) {
+        uvmunmap(new, 0, i / PGSIZE, 1);
+        kfree(mem);
+      }
+      continue;
+    }
+
+    // convert parent PTE to COW
+    *pte = COW_set(W_unset(*pte));
+    flags = PTE_FLAGS(*pte);
+
+    if (mappages(new, i, PGSIZE, pa, flags) != 0){
+      uvmunmap(new, 0, i / PGSIZE, 1);
+      return -1;
+    }
+    //pte = walk(new, i, 0);
+    //printf("%lu", *pte);
+
+    // install same PTE in child
+    //new_pte = walk(new, i, 1);
+    //if (new_pte == 0)
+    //  panic("uvmcopy: walk failed");
+//
+    //*new_pte = *pte;
+
+    // increase refcount
     acquire(&refcnt.lock);
-    refcnt.count[pa / PGSIZE] += 1;
+    uint32 idx = (pa - KERNBASE) / PGSIZE;
+    refcnt.count[idx] += 1;
     release(&refcnt.lock);
   }
-  memmove(new, old, sizeof(old));
   return 0;
 /*
  err:
