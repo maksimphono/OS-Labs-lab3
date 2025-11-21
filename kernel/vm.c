@@ -321,6 +321,8 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 
   // TODO: rewrite this function, copy all PTEs (not pages) which are valid
   // unset their R/W flag, set their COW flag
+  
+  // correct? 
   for(uint64 i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
       panic("uvmcopy: pte should exist");

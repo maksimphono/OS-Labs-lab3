@@ -76,6 +76,7 @@ usertrap(void)
     uint64 fault_page_va = r_stval() & ~0xfffULL; // convert to page's base address immediately
     pte_t* fault_pte = walk(p->pagetable, fault_page_va, 0);
 
+    // correct? 
     if (COW_flag(*fault_pte)) { // it is really a COW interruption
       uint64 pa = PTE2PA(*fault_pte);
       uint64 flags = PTE_FLAGS(*fault_pte);
