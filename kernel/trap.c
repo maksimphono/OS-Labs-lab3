@@ -52,9 +52,9 @@ usertrap(void)
   // save user program counter.
   p->trapframe->epc = r_sepc();
   
-  if (scause == 1){
-    printf("1");
-  }
+//  if (scause == 1){
+//    printf("1");
+//  }
   if(scause == 8){
     // system call
 
@@ -79,12 +79,12 @@ usertrap(void)
     // correct? 
     if (COW_flag(*fault_pte)) { // it is really a COW interruption
       uint64 pa = PTE2PA(*fault_pte);
-      uint64 page_idx = (pa - KERNBASE) / PGSIZE;
+      uint64 page_idx = (PGROUNDUP(pa) - KERNBASE) / PGSIZE;
       uint64 flags = PTE_FLAGS(*fault_pte);
       byte* mem;
 
       if (refcnt.count[page_idx] > 1) { // if many processes use this page, I need to copy it
-        // allocate new page
+        // allocate new page and copy content to it
         if((mem = kalloc()) == 0)// panic("panic");
           uvmunmap(p->pagetable, 0, fault_page_va / PGSIZE, 1);
 

@@ -342,13 +342,13 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 
     // increase refcount
     acquire(&refcnt.lock);
-    uint32 idx = (pa - KERNBASE) / PGSIZE;
+    uint32 idx = (PGROUNDUP(pa) - KERNBASE) / PGSIZE;
     refcnt.count[idx] += 1;
     release(&refcnt.lock);
   }
   return 0;
 
-  err:
+err:
   uvmunmap(new, 0, i / PGSIZE, 1);
   return -1;
 }
