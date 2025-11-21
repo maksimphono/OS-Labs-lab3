@@ -109,6 +109,7 @@ usertrap(void)
         // this is the last process that uses that page, no need to copy, just reset the flags
         *fault_pte = COW_unset(W_set(*fault_pte));
       }
+      p->trapframe->epc = r_sepc(); // repeat the failed instaruction
 
     } else { // it isn't COW interruption, just regular read-only permission violation
       // kill the process
