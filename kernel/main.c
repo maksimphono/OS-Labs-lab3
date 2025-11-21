@@ -3,14 +3,27 @@
 #include "memlayout.h"
 #include "riscv.h"
 #include "defs.h"
+#include "refcnt.h"
 
 volatile static int started = 0;
+
+// Global reference counter instance
+refcnt_t refcnt;
+
+// Function to initialize the reference counter
+void refcnt_init() {
+    for (int i = 0; i < (PGROUNDUP(PHYSTOP) - KERNBASE)/PGSIZE; i++) {
+        refcnt.count[i] = 0;  // Initialize the reference count to 0 for all pages
+    }
+    initlock(&refcnt.lock, "refcnt");  // Initialize the spinlock
+}
 
 // start() jumps here in supervisor mode on all CPUs.
 void
 main()
 {
   if(cpuid() == 0){
+    refcnt_init();
     consoleinit();
     printfinit();
     printf("\n");

@@ -5,6 +5,7 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
+#include "refcnt.h"
 
 /*
  * the kernel's page table.
@@ -325,7 +326,12 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
       panic("uvmcopy: pte should exist");
     if((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
+    uint64 pa = PTE2PA(*pte);
     *pte = COW_set(W_unset(*pte));
+
+    acquire(&refcnt.lock);
+    refcnt.count[pa / 4096] += 1;
+    release(&refcnt.lock);
   }
   memmove(new, old, sizeof(old));
   return 0;
