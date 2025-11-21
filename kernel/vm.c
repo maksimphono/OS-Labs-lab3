@@ -330,7 +330,7 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     *pte = COW_set(W_unset(*pte));
 
     acquire(&refcnt.lock);
-    refcnt.count[pa / 4096] += 1;
+    refcnt.count[pa / PGSIZE] += 1;
     release(&refcnt.lock);
   }
   memmove(new, old, sizeof(old));

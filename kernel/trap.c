@@ -81,27 +81,37 @@ usertrap(void)
       uint64 flags = PTE_FLAGS(*fault_pte);
       byte* mem;
 
-      *fault_pte = COW_unset(W_set(*fault_pte)); // for now (TODO: change later)
-      *fault_pte = *fault_pte & ~1ULL; // unset VALID bit (make invalid for map)
+      if (refcnt.count[pa / PGSIZE] > 1) { // if many processes use this page, I need to copy it
+        // allocate new page
+        if((mem = kalloc()) == 0)// panic("panic");
+          uvmunmap(p->pagetable, 0, fault_page_va / PGSIZE, 1);
 
-      // allocate new page
-      if((mem = kalloc()) == 0)// panic("panic");
-        uvmunmap(p->pagetable, 0, fault_page_va / PGSIZE, 1);
+        memmove(mem, (byte*)pa, PGSIZE);
 
-      memmove(mem, (byte*)pa, PGSIZE);
-      if(mappages(p->pagetable, fault_page_va, PGSIZE, (uint64)mem, flags) != 0){
-        kfree(mem);
-        uvmunmap(p->pagetable, 0, fault_page_va / PGSIZE, 1);
+        *fault_pte = *fault_pte & ~1ULL; // unset VALID bit (make invalid for map)
+        if(mappages(p->pagetable, fault_page_va, PGSIZE, (uint64)mem, flags) != 0){
+          kfree(mem);
+          uvmunmap(p->pagetable, 0, fault_page_va / PGSIZE, 1);
+        }
+
+        // reset the flags on the new PTE
+        fault_pte = walk(p->pagetable, fault_page_va, 0);
+        *fault_pte = COW_unset(W_set(*fault_pte));
+
+        // update reference counter
+        acquire(&refcnt.lock);
+        refcnt.count[pa / PGSIZE] -= 1;
+        release(&refcnt.lock);
+
+      } else {
+        // this is the last process that uses that page, no need to copy, just reset the flags
+        *fault_pte = COW_unset(W_set(*fault_pte));
       }
 
-      fault_pte = walk(p->pagetable, fault_page_va, 0);
-      *fault_pte = COW_unset(W_set(*fault_pte));
-
-      } else { // it isn't COW interruption, just regular read-only permission violation
-        // kill the process
-        setkilled(p);
-      }
-
+    } else { // it isn't COW interruption, just regular read-only permission violation
+      // kill the process
+      setkilled(p);
+    }
       //printf("%ld, %ln", fault_page_va, fault_pte);
   } else if((which_dev = devintr()) != 0){
     // ok
