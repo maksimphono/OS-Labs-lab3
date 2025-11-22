@@ -341,10 +341,11 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     }
 
     // increase refcount
-    acquire(&refcnt.lock);
-    uint32 idx = (PGROUNDUP(pa) - KERNBASE) / PGSIZE;
-    refcnt.count[idx] += 1;
-    release(&refcnt.lock);
+    uint32 idx = page_index(pa);
+    inc_ref(idx);
+    //acquire(&refcnt.lock);
+    //refcnt.count[idx] += 1;
+    //release(&refcnt.lock);
   }
   return 0;
 
@@ -388,7 +389,7 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
     if (COW_flag(*pte)) {
       // this page is shared via COW, I need to create copy of the page first
       uint64 pa = PTE2PA(*pte);
-      uint64 page_idx = (PGROUNDUP(pa) - KERNBASE) / PGSIZE;
+      uint64 page_idx = page_index(pa);
       uint64 flags = PTE_FLAGS(*pte);
       byte* mem;
 
@@ -413,9 +414,10 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
         //sfence_vma();
 
         // update reference counter
-        acquire(&refcnt.lock);
-        refcnt.count[page_idx] -= 1;
-        release(&refcnt.lock);
+        dec_ref(page_idx);
+        //acquire(&refcnt.lock);
+        //refcnt.count[page_idx] -= 1;
+        //release(&refcnt.lock);
       } else {
         // there is only one process that uses that page, no need to copy, just reset the flags
         *pte = COW_unset(W_set(*pte));

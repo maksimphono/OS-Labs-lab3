@@ -79,7 +79,7 @@ usertrap(void)
     // correct? 
     if (COW_flag(*fault_pte)) { // it is really a COW interruption
       uint64 pa = PTE2PA(*fault_pte);
-      uint64 page_idx = (PGROUNDUP(pa) - KERNBASE) / PGSIZE;
+      uint64 page_idx = page_index(pa);
       uint64 flags = PTE_FLAGS(*fault_pte);
       byte* mem;
 
@@ -101,9 +101,10 @@ usertrap(void)
         *fault_pte = COW_unset(W_set(*fault_pte));
 
         // update reference counter
-        acquire(&refcnt.lock);
-        refcnt.count[page_idx] -= 1;
-        release(&refcnt.lock);
+        dec_ref(page_idx);
+        //acquire(&refcnt.lock);
+        //refcnt.count[page_idx] -= 1;
+        //release(&refcnt.lock);
 
       } else {
         // this is the last process that uses that page, no need to copy, just reset the flags

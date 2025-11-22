@@ -35,11 +35,14 @@ void
 freerange(void *pa_start, void *pa_end)
 {
   char *p;
+  uint64 page_idx;
   p = (char*)PGROUNDUP((uint64)pa_start);
   for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE) {
-    acquire(&refcnt.lock);
-    refcnt.count[(PGROUNDUP((uint64)p) - KERNBASE)/PGSIZE] = 1; 
-    release(&refcnt.lock);
+    page_idx = page_index((uint64)p);
+    set_ref(page_idx, 1);
+    //acquire(&refcnt.lock);
+    //refcnt.count[(PGROUNDUP((uint64)p) - KERNBASE)/PGSIZE] = 1; 
+    //release(&refcnt.lock);
     kfree(p);
   }
 }
@@ -56,7 +59,7 @@ kfree(void *pa)
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
 
-  uint64 page_idx = (PGROUNDUP(((uint64)pa)) - KERNBASE) / PGSIZE;
+  uint64 page_idx = page_index((uint64)pa);
 
   if (refcnt.count[page_idx] <= 1) {
     // last process, that was using this page gave it up -> free it completely
@@ -71,14 +74,16 @@ kfree(void *pa)
     kmem.freelist = r;
     release(&kmem.lock);
 
-    acquire(&refcnt.lock);
-    refcnt.count[page_idx] = 0; // no one uses that page anymore (it's free now)
-    release(&refcnt.lock);
+    set_ref(page_idx, 0);
+    //acquire(&refcnt.lock);
+    //refcnt.count[page_idx] = 0; // no one uses that page anymore (it's free now)
+    //release(&refcnt.lock);
   } else {
     // there are still some processes, that are using that page -> don't free it yet
-    acquire(&refcnt.lock);
-    refcnt.count[page_idx] -= 1;
-    release(&refcnt.lock);
+    dec_ref(page_idx);
+    //acquire(&refcnt.lock);
+    //refcnt.count[page_idx] -= 1;
+    //release(&refcnt.lock);
   }
 }
 
@@ -100,9 +105,11 @@ kalloc(void)
   if (r) {
     memset((char*)r, 5, PGSIZE); // fill with junk
 
-    acquire(&refcnt.lock);
-    refcnt.count[(PGROUNDUP(((uint64)r)) - KERNBASE) / PGSIZE] = 1;
-    release(&refcnt.lock);
+    uint64 page_idx = page_index((uint64)r);
+    set_ref(page_idx, 1);
+    //acquire(&refcnt.lock);
+    //refcnt.count[(PGROUNDUP(((uint64)r)) - KERNBASE) / PGSIZE] = 1;
+    //release(&refcnt.lock);
   }
   return (void*)r;
 }
