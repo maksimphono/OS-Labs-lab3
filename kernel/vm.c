@@ -375,7 +375,7 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
   uint64 n, va0, pa0;
   pte_t *pte;
 
-  // TODO
+  // TODO: realize copying using COW mechanism
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);
     if(va0 >= MAXVA)
@@ -384,7 +384,46 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
     if(pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0 ||
        (*pte & PTE_W) == 0)
       return -1;
-    pa0 = PTE2PA(*pte);
+
+    if (COW_flag(*pte)) {
+      // this page is shared via COW, I need to create copy of the page first
+      uint64 pa = PTE2PA(*pte);
+      uint64 page_idx = (PGROUNDUP(pa) - KERNBASE) / PGSIZE;
+      uint64 flags = PTE_FLAGS(*pte);
+      byte* mem;
+
+      if (refcnt.count[page_idx] > 1) { // if many processes use this page, I need to copy it
+        // allocate new page and copy content to it
+        if((mem = kalloc()) == 0)// panic("panic");
+          uvmunmap(pagetable, 0, va0 / PGSIZE, 1);
+
+        memmove(mem, (byte*)pa, PGSIZE);
+
+        *pte = *pte & ~1ULL; // unset VALID bit (make invalid for map)
+        if (mappages(pagetable, va0, PGSIZE, (uint64)mem, flags) != 0){
+          kfree(mem);
+          uvmunmap(pagetable, 0, va0 / PGSIZE, 1);
+        }
+
+        // reset the flags on the new PTE
+        pte = walk(pagetable, va0, 0);
+        *pte = COW_unset(W_set(*pte));
+
+        // flush stale PTEs
+        //sfence_vma();
+
+        // update reference counter
+        acquire(&refcnt.lock);
+        refcnt.count[page_idx] -= 1;
+        release(&refcnt.lock);
+      } else {
+        // there is only one process that uses that page, no need to copy, just reset the flags
+        *pte = COW_unset(W_set(*pte));
+      }
+    }
+
+    pa0 = walkaddr(pagetable, va0);
+
     n = PGSIZE - (dstva - va0);
     if(n > len)
       n = len;
