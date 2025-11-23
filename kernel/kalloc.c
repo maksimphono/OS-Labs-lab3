@@ -40,9 +40,7 @@ freerange(void *pa_start, void *pa_end)
   for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE) {
     page_idx = page_index((uint64)p);
     set_ref(page_idx, 1);
-    //acquire(&refcnt.lock);
-    //refcnt.count[(PGROUNDUP((uint64)p) - KERNBASE)/PGSIZE] = 1; 
-    //release(&refcnt.lock);
+
     kfree(p);
   }
 }
@@ -75,15 +73,10 @@ kfree(void *pa)
     release(&kmem.lock);
 
     set_ref(page_idx, 0);
-    //acquire(&refcnt.lock);
-    //refcnt.count[page_idx] = 0; // no one uses that page anymore (it's free now)
-    //release(&refcnt.lock);
+
   } else {
     // there are still some processes, that are using that page -> don't free it yet
     dec_ref(page_idx);
-    //acquire(&refcnt.lock);
-    //refcnt.count[page_idx] -= 1;
-    //release(&refcnt.lock);
   }
 }
 
@@ -107,9 +100,6 @@ kalloc(void)
 
     uint64 page_idx = page_index((uint64)r);
     set_ref(page_idx, 1);
-    //acquire(&refcnt.lock);
-    //refcnt.count[(PGROUNDUP(((uint64)r)) - KERNBASE) / PGSIZE] = 1;
-    //release(&refcnt.lock);
   }
   return (void*)r;
 }

@@ -102,9 +102,6 @@ usertrap(void)
 
         // update reference counter
         dec_ref(page_idx);
-        //acquire(&refcnt.lock);
-        //refcnt.count[page_idx] -= 1;
-        //release(&refcnt.lock);
 
       } else {
         // this is the last process that uses that page, no need to copy, just reset the flags

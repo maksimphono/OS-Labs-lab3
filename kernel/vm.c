@@ -343,9 +343,6 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     // increase refcount
     uint32 idx = page_index(pa);
     inc_ref(idx);
-    //acquire(&refcnt.lock);
-    //refcnt.count[idx] += 1;
-    //release(&refcnt.lock);
   }
   return 0;
 
@@ -415,9 +412,6 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 
         // update reference counter
         dec_ref(page_idx);
-        //acquire(&refcnt.lock);
-        //refcnt.count[page_idx] -= 1;
-        //release(&refcnt.lock);
       } else {
         // there is only one process that uses that page, no need to copy, just reset the flags
         *pte = COW_unset(W_set(*pte));
