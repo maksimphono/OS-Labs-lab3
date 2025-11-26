@@ -71,11 +71,9 @@ usertrap(void)
     syscall();
   } else if(scause == 15){
     // page fault
-    // TODO handle copy-on-write page fault
     fault_page_va = r_stval() & ~0xfffULL; // convert to page's base address immediately
     fault_pte = walk(p->pagetable, fault_page_va, 0);
 
-    // correct? 
     if (COW_flag(*fault_pte)) { // it is really a COW interruption
       uint64 pa = PTE2PA(*fault_pte);
       uint64 page_idx = page_index(pa);
@@ -115,7 +113,6 @@ usertrap(void)
       // kill the process
       setkilled(p);
     }
-      //printf("%ld, %ln", fault_page_va, fault_pte);
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {
