@@ -392,15 +392,16 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 
       if (refcnt.count[page_idx] > 1) { // if many processes use this page, I need to copy it
         // allocate new page and copy content to it
-        if((mem = kalloc()) == 0)// panic("panic");
-          uvmunmap(pagetable, 0, va0 / PGSIZE, 1);
+        if((mem = kalloc()) == 0) {// panic("panic");
+          goto err;
+        }
 
         memmove(mem, (byte*)pa, PGSIZE);
 
         *pte = *pte & ~1ULL; // unset VALID bit (make invalid for map)
         if (mappages(pagetable, va0, PGSIZE, (uint64)mem, flags) != 0){
           kfree(mem);
-          uvmunmap(pagetable, 0, va0 / PGSIZE, 1);
+          goto err;
         }
 
         // reset the flags on the new PTE
@@ -430,6 +431,10 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
     dstva = va0 + PGSIZE;
   }
   return 0;
+
+err:
+  uvmunmap(pagetable, 0, va0 / PGSIZE, 1);
+  return -1;
 }
 
 // Copy from user to kernel.

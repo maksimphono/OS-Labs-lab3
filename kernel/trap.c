@@ -39,6 +39,8 @@ usertrap(void)
 {
   int which_dev = 0;
   uint64 scause = r_scause();
+  uint64 fault_page_va;
+  pte_t* fault_pte;
 
   if((r_sstatus() & SSTATUS_SPP) != 0)
     panic("usertrap: not from user mode");
@@ -51,10 +53,7 @@ usertrap(void)
   
   // save user program counter.
   p->trapframe->epc = r_sepc();
-  
-//  if (scause == 1){
-//    printf("1");
-//  }
+
   if(scause == 8){
     // system call
 
@@ -73,8 +72,8 @@ usertrap(void)
   } else if(scause == 15){
     // page fault
     // TODO handle copy-on-write page fault
-    uint64 fault_page_va = r_stval() & ~0xfffULL; // convert to page's base address immediately
-    pte_t* fault_pte = walk(p->pagetable, fault_page_va, 0);
+    fault_page_va = r_stval() & ~0xfffULL; // convert to page's base address immediately
+    fault_pte = walk(p->pagetable, fault_page_va, 0);
 
     // correct? 
     if (COW_flag(*fault_pte)) { // it is really a COW interruption
@@ -85,15 +84,18 @@ usertrap(void)
 
       if (refcnt.count[page_idx] > 1) { // if many processes use this page, I need to copy it
         // allocate new page and copy content to it
-        if((mem = kalloc()) == 0)// panic("panic");
-          uvmunmap(p->pagetable, 0, fault_page_va / PGSIZE, 1);
+        if((mem = kalloc()) == 0) {// panic("panic");
+          // if memory isn't enough - kill the process
+          goto page_fault_mem_err;
+        }
 
         memmove(mem, (byte*)pa, PGSIZE);
 
         *fault_pte = *fault_pte & ~1ULL; // unset VALID bit (make invalid for map)
         if(mappages(p->pagetable, fault_page_va, PGSIZE, (uint64)mem, flags) != 0){
+          // inconsistent PTE - kill the process
           kfree(mem);
-          uvmunmap(p->pagetable, 0, fault_page_va / PGSIZE, 1);
+          goto page_fault_mem_err;
         }
 
         // reset the flags on the new PTE
@@ -130,6 +132,12 @@ usertrap(void)
     yield();
 
   usertrapret();
+  return;
+
+page_fault_mem_err:
+  uvmunmap(p->pagetable, 0, fault_page_va / PGSIZE, 1);
+  setkilled(p);
+  exit(-1);
 }
 
 //
